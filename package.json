@@ -1,0 +1,49 @@
+{
+  "name": "opencode-insights",
+  "version": "0.1.0",
+  "description": "Analyze your OpenCode session history. Generates interactive HTML reports revealing coding habits, friction points, and workflow optimizations.",
+  "license": "MIT",
+  "author": "opencode-insights contributors",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/niaowuuu/opencode-insights"
+  },
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./db": "./src/db.ts",
+    "./extract": "./src/extract.ts",
+    "./report": "./src/report.ts",
+    "./types": "./src/types.ts",
+    "./skill": "./skill/SKILL.md"
+  },
+  "bin": {
+    "opencode-insights": "./src/cli.ts"
+  },
+  "files": [
+    "src/",
+    "skill/",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "opencode",
+    "insights",
+    "analytics",
+    "session-analysis",
+    "developer-productivity",
+    "cli"
+  ],
+  "scripts": {
+    "test": "bun test tests/",
+    "test:watch": "bun test --watch tests/",
+    "insights": "bun run src/cli.ts"
+  },
+  "peerDependencies": {
+    "bun": ">=1.0.0"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
+  }
+}
