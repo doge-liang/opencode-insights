@@ -1,6 +1,6 @@
 {
   "name": "@doge-liang/opencode-insights",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Analyze your OpenCode session history. Generates interactive HTML reports revealing coding habits, friction points, and workflow optimizations.",
   "license": "MIT",
   "author": "opencode-insights contributors",
