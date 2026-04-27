@@ -16,10 +16,10 @@ Analyze your OpenCode session history. Generates interactive HTML reports reveal
 
 ```bash
 # One-shot: extract JSON data
-bunx opencode-insights --json
+bunx @doge-liang/opencode-insights --json
 
 # Generate HTML report (opens in browser)
-bunx opencode-insights --report
+bunx @doge-liang/opencode-insights --report
 ```
 
 Report saved to `~/.opencode/insights/report.html`.
