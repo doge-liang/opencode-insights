@@ -1,4 +1,16 @@
 import type { Database } from "bun:sqlite";
+import * as fs from "node:fs";
+import * as path from "node:path";
+
+const ACTIVE_GAP_THRESHOLD_MS = 5 * 60 * 1000;
+const ESTIMATED_OVERHEAD_MS = 30_000;
+
+interface SessionDiffEntry {
+  file: string;
+  additions: number;
+  deletions: number;
+  status: string;
+}
 
 export interface SessionSummary {
   id: string;
@@ -60,7 +72,15 @@ export interface SessionStats {
   usedWebFetch: boolean;
   userMessageHours: number[];
   toolErrors: number;
+  activeDurationMs: number;
 }
+
+const BUILTIN_TOOLS = new Set([
+  "bash", "read", "edit", "write", "glob", "grep", "question",
+  "todowrite", "task", "skill", "webfetch",
+  "pty_spawn", "pty_read", "pty_write", "pty_list", "pty_kill",
+  "retries",
+]);
 
 export function querySessionSummaries(db: Database): SessionSummary[] {
   return db
@@ -162,7 +182,7 @@ export function queryMessageParts(db: Database, sessionId: string): PartData[] {
   });
 }
 
-export function querySessionStats(db: Database, sessionId: string): SessionStats {
+export function querySessionStats(db: Database, sessionId: string, storageDir?: string): SessionStats {
   const messages = db
     .query(
       `SELECT data, time_created as timeCreated
@@ -200,27 +220,37 @@ export function querySessionStats(db: Database, sessionId: string): SessionStats
     }
   }
 
+  // Active duration: sum gaps < 5min + per-message overhead
+  let activeDurationMs = 0;
+  if (messages.length >= 2) {
+    for (let i = 1; i < messages.length; i++) {
+      const gap = messages[i].timeCreated - messages[i - 1].timeCreated;
+      if (gap < ACTIVE_GAP_THRESHOLD_MS) {
+        activeDurationMs += gap;
+      }
+    }
+  }
+  activeDurationMs += messages.length * ESTIMATED_OVERHEAD_MS;
+
   const parts = db
     .query(`SELECT data FROM part WHERE session_id = $id`)
     .all({ $id: sessionId }) as Array<{ data: string }>;
 
   let toolErrors = 0;
-  const languageCounts: Record<string, number> = {};
 
   for (const part of parts) {
     const d = JSON.parse(part.data);
     if (d.type === "tool") {
       if (d.tool === "task") usedTaskAgent = true;
-      if (d.tool && (d.tool as string).startsWith("mcp__")) usedMcp = true;
+      if (d.tool && !BUILTIN_TOOLS.has(d.tool as string)) usedMcp = true;
       if (d.tool === "exa_web_search_exa") usedWebSearch = true;
       if (d.tool === "webfetch" || d.tool === "exa_web_fetch_exa") usedWebFetch = true;
       if (d.state?.status === "error") toolErrors++;
     }
-    if (d.type === "patch" && d.state?.output) {
-      const ext = detectLanguageFromPatch(d.state.output);
-      if (ext) languageCounts[ext] = (languageCounts[ext] || 0) + 1;
-    }
   }
+
+  // Language counts from session_diff files
+  const languageCounts = extractLanguageCounts(sessionId, storageDir);
 
   return {
     sessionId,
@@ -236,21 +266,44 @@ export function querySessionStats(db: Database, sessionId: string): SessionStats
     usedWebFetch,
     userMessageHours,
     toolErrors,
+    activeDurationMs,
   };
 }
 
-function detectLanguageFromPatch(patch: string): string | null {
-  const match = patch.match(/Index:\s+(\S+)/);
-  if (!match) return null;
-  const filename = match[1];
-  const ext = filename.split(".").pop()?.toLowerCase();
-  const langMap: Record<string, string> = {
-    ts: "TypeScript", tsx: "TypeScript", js: "JavaScript", jsx: "JavaScript",
-    py: "Python", rs: "Rust", go: "Go", java: "Java", rb: "Ruby", php: "PHP",
-    c: "C", cpp: "C++", h: "C", hpp: "C++",
-    css: "CSS", scss: "SCSS", html: "HTML", md: "Markdown",
-    json: "JSON", yaml: "YAML", yml: "YAML", toml: "TOML",
-    sql: "SQL", sh: "Shell", bash: "Shell", zsh: "Shell", dockerfile: "Docker",
-  };
-  return langMap[ext || ""] || null;
+function readSessionDiff(storageDir: string, sessionId: string): SessionDiffEntry[] {
+  const filePath = path.join(storageDir, `${sessionId}.json`);
+  if (!fs.existsSync(filePath)) return [];
+
+  try {
+    const raw = fs.readFileSync(filePath, "utf-8");
+    return JSON.parse(raw) as SessionDiffEntry[];
+  } catch {
+    return [];
+  }
 }
+
+function extractLanguageCounts(sessionId: string, storageDir?: string): Record<string, number> {
+  if (!storageDir) return {};
+
+  const diffs = readSessionDiff(storageDir, sessionId);
+  const counts: Record<string, number> = {};
+
+  for (const entry of diffs) {
+    const ext = entry.file.split(".").pop()?.toLowerCase();
+    const lang = LANG_MAP[ext || ""] || null;
+    if (lang) {
+      counts[lang] = (counts[lang] || 0) + 1;
+    }
+  }
+
+  return counts;
+}
+
+const LANG_MAP: Record<string, string> = {
+  ts: "TypeScript", tsx: "TypeScript", js: "JavaScript", jsx: "JavaScript",
+  py: "Python", rs: "Rust", go: "Go", java: "Java", rb: "Ruby", php: "PHP",
+  c: "C", cpp: "C++", h: "C", hpp: "C++",
+  css: "CSS", scss: "SCSS", html: "HTML", md: "Markdown",
+  json: "JSON", yaml: "YAML", yml: "YAML", toml: "TOML",
+  sql: "SQL", sh: "Shell", bash: "Shell", zsh: "Shell", dockerfile: "Docker",
+};

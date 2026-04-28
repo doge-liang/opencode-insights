@@ -7,7 +7,9 @@ import * as os from "node:os";
 import { generateInsightsJson } from "./extract";
 import { renderReportHtml } from "./report";
 
-const DB_PATH = path.join(os.homedir(), ".local", "share", "opencode", "opencode.db");
+const DB_DIR = path.join(os.homedir(), ".local", "share", "opencode");
+const DB_PATH = path.join(DB_DIR, "opencode.db");
+const STORAGE_DIR = path.join(DB_DIR, "storage", "session_diff");
 const DEFAULT_OUTPUT_DIR = path.join(os.homedir(), ".opencode", "insights");
 const DEFAULT_OUTPUT_FILE = path.join(DEFAULT_OUTPUT_DIR, "report.html");
 
@@ -66,7 +68,7 @@ async function main() {
     process.exit(1);
   }
 
-  const output = generateInsightsJson(db);
+  const output = generateInsightsJson(db, STORAGE_DIR);
   db.close();
 
   if (jsonMode) {

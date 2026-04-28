@@ -222,8 +222,8 @@ export function renderReportHtml(output: InsightsOutput, narrativeSections?: Rec
     border: 1px solid var(--border); border-radius: 8px;
     padding: 1rem; margin-bottom: 2rem;
   }
-  nav.toc ul { list-style: none; }
-  nav.toc li { margin-bottom: 0.4rem; }
+  nav.toc ul { list-style: none; display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; }
+  nav.toc li { white-space: nowrap; }
   nav.toc a { color: var(--accent); text-decoration: none; font-size: 0.9rem; }
   nav.toc a:hover { text-decoration: underline; }
 
@@ -268,7 +268,7 @@ ${renderStatsSummary(output)}
 <h2 id="activity">Activity Hours</h2>
 <div class="chart-container">
   <div class="chart-title">Messages by Hour of Day (UTC)</div>
-  ${renderHourHeatmap(data.hourDistribution)}
+  <div class="hour-grid">${renderHourHeatmap(data.hourDistribution)}</div>
 </div>
 
 <h2 id="features">Feature Adoption</h2>
@@ -302,8 +302,9 @@ function renderNavigation(): string {
     ["#project-areas", "Project Areas"], ["#interaction-style", "Interaction Style"],
     ["#what-works", "What Works"], ["#friction", "Friction"],
     ["#suggestions", "Suggestions"], ["#horizon", "On the Horizon"],
+    ["#fun-ending", "Fun Ending"],
   ];
-  const items = links.map(([href, label]) => `<li><a href="${href}">${label}</a></li>`).join("\n");
+  const items = links.map(([href, label]) => `<li><a href="${href}">${label}</a></li>`).join("");
   return `<nav class="toc"><ul>${items}</ul></nav>`;
 }
 
@@ -315,7 +316,7 @@ function renderBarChart(items: Array<{ name: string; count: number; percentage: 
     <div class="bar-row">
       <span class="bar-label">${item.name}</span>
       <div class="bar-track">
-        <div class="bar-fill color-${i % 8}" style="width:${(item.count / maxCount) * 100}%"></div>
+        <div class="bar-fill color-${i % 8}" style="width:${Math.round((item.count / maxCount) * 100)}%"></div>
       </div>
       <span class="bar-value">${item.count.toLocaleString("en-US")}</span>
       <span class="bar-pct">${item.percentage}%</span>

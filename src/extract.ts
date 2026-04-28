@@ -45,11 +45,11 @@ export interface InsightsOutput {
   sessions: ExtractedSession[];
 }
 
-export function extractSessionData(db: Database, sessionId: string): ExtractedSession | null {
+export function extractSessionData(db: Database, sessionId: string, storageDir?: string): ExtractedSession | null {
   const metadata = querySessionMetadata(db, sessionId);
   if (!metadata) return null;
 
-  const stats = querySessionStats(db, sessionId);
+  const stats = querySessionStats(db, sessionId, storageDir);
   const toolCounts = queryToolCounts(db, sessionId);
   const chatParts = queryMessageParts(db, sessionId);
 
@@ -69,12 +69,12 @@ export function filterSessions(sessions: ExtractedSession[]): ExtractedSession[]
   });
 }
 
-export function generateInsightsJson(db: Database): InsightsOutput {
+export function generateInsightsJson(db: Database, storageDir?: string): InsightsOutput {
   const summaries = querySessionSummaries(db);
   const allSessions: ExtractedSession[] = [];
 
   for (const summary of summaries) {
-    const data = extractSessionData(db, summary.id);
+    const data = extractSessionData(db, summary.id, storageDir);
     if (data) allSessions.push(data);
   }
 
@@ -101,7 +101,7 @@ export function generateInsightsJson(db: Database): InsightsOutput {
 
   for (const sess of filtered) {
     totalUserMessages += sess.stats.userMessageCount;
-    totalDurationMs += sess.metadata.timeUpdated - sess.metadata.timeCreated;
+    totalDurationMs += sess.stats.activeDurationMs;
     totalInputTokens += sess.stats.totalInputTokens;
     totalOutputTokens += sess.stats.totalOutputTokens;
     totalCost += sess.stats.totalCost;
